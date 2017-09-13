@@ -38,14 +38,19 @@ bot.dialog('HeavyWork', function (session) {
     );
 }).triggerAction({ matches: 'DoHeavyWorkIntent' });
 
-
 bot.on('conversationUpdate', function (activity) {
     activity.membersAdded.forEach(function (member) {
         if(member.name === "User") {
             var reply = new builder.Message()
             .address(activity.address)
-            .text("Yo !");
+            .text(`Hello ${member.name}`);
             bot.send(reply);
         }
-    })
+        else if(member.name === "Bot") {
+            var reply = new builder.Message()
+            .address(activity.address)
+            .text(`A new bot named "${member.name}" has joined the conversation`);
+            bot.send(reply);
+        }
+    });
 });
