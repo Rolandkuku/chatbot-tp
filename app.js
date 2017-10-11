@@ -35,14 +35,14 @@ bot.on("conversationUpdate", function (activity) {
 });
 
 var menuItems = {
-    "Ask Name": {
+    "Give my name": {
         item: "askName"
+    },
+    "Give my phone number number": {
+        item: "phonePrompt"
     },
     "Make a booking": {
         item: "reservation"
-    },
-    "Ask phone number": {
-        item: "phonePrompt"
     },
     "Quit this": {
         item: "endConversation"
