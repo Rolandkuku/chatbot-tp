@@ -18,9 +18,34 @@ server.post('/api/messages', connector.listen());
 
 var bot = new builder.UniversalBot(connector, [
     function (session) {
-        session.beginDialog("greetings");
+        session.send("Type 'Main menu' to get started");
+        session.beginDialog("menu");
     }
 ]);
+
+var menuItems = {
+    "Ask Name": {
+        item: "askName"
+    },
+    "Make a booking": {
+        item: "reservation"
+    },
+    "Ask phone number": {
+        item: "phonePrompt"
+    }
+};
+
+bot.dialog("menu", [
+    function (session) {
+        builder.Prompts.choice(session, "Menu:", menuItems, {listStyle: builder.ListStyle.button});
+    },
+    function (session, result) {
+        session.beginDialog(menuItems[result.response.entity].item);
+    }
+]).triggerAction({
+    matches: /^main menu$/i,
+    confirmPrompt: "This will cancel your request. Are you sure?"
+});
 
 bot.dialog("greetings", [
     function (session) {
@@ -50,6 +75,27 @@ bot.dialog("askName", [
     }
 ]);
 
+bot.dialog("phonePrompt", [
+    function (session, args) {
+        if (args && args.reprompt) {
+            builder.Prompts.text(session, "Enter the number using a format of either: '(555) 123-4567' or '555-123-4567' or '5551234567'")
+        } else {
+            builder.Prompts.text(session, "What's your phone number?");
+        }
+    },
+    function (session, results) {
+        var matched = results.response.match(/\d+/g);
+        var number = matched ? matched.join("") : "";
+        if (number.length == 10 || number.length == 11) {
+            session.userData.phoneNumber = number; // Save the number.
+            session.endDialogWithResult({ response: number });
+        } else {
+            // Repeat the dialog
+            session.replaceDialog("phonePrompt", { reprompt: true });
+        }
+    }
+]);
+
 bot.dialog("reservation", [
     function (session) {
         builder.Prompts.time(session, "When do you want to book ?");
@@ -66,4 +112,17 @@ bot.dialog("reservation", [
         session.privateConversationData.bookName = result.response;
         session.endDialog();
     }
-]);
+]).reloadAction(
+    "restartOrderDinner", "Ok. Let's start over.",
+    {
+        matches: /^start over$/i,
+        confirmPrompt: "This wil cancel your booking. Are you sure?"
+    }
+)
+.cancelAction(
+    "cancelOrder", "Type 'Main Menu' to continue.",
+    {
+        matches: /^cancel$/i,
+        confirmPrompt: "This will cancel your booking. Are you sure?"
+    }
+);
