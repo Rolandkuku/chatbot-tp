@@ -23,6 +23,17 @@ var bot = new builder.UniversalBot(connector, [
     }
 ]);
 
+bot.on("conversationUpdate", function (activity) {
+    activity.membersAdded.forEach(function (member) {
+        if(member.name === "User") {
+            var reply = new builder.Message()
+            .address(activity.address)
+            .text(`Hello ${member.name}, please type "Main menu" to get started.`);
+            bot.send(reply);
+        }
+    });
+});
+
 var menuItems = {
     "Ask Name": {
         item: "askName"
@@ -32,8 +43,24 @@ var menuItems = {
     },
     "Ask phone number": {
         item: "phonePrompt"
+    },
+    "Quit this": {
+        item: "endConversation"
     }
 };
+
+bot.dialog("endConversation", [
+    function (session) {
+        if (session.userData.userName) {
+            session.send(`It as been a pleasure, ${session.userData.userName}, see you later.`);
+        }
+        else {
+            session.send(`It as been a pleasure, see you later.`);
+        }
+        session.userData = {};
+        session.endConversation();
+    }
+])
 
 bot.dialog("menu", [
     function (session) {
@@ -41,37 +68,23 @@ bot.dialog("menu", [
     },
     function (session, result) {
         session.beginDialog(menuItems[result.response.entity].item);
+    },
+    function (session) {
+        session.replaceDialog("menu");
     }
 ]).triggerAction({
     matches: /^main menu$/i,
     confirmPrompt: "This will cancel your request. Are you sure?"
 });
 
-bot.dialog("greetings", [
-    function (session) {
-        session.beginDialog("askName");
-    },
-    function (session, result) {
-        session.userName = result.response;
-        session.beginDialog("reservation");
-    },
-    function (session, result) {
-        session.send(
-            `Ok ${session.privateConversationData.userName},
-            I'll make a booking for ${session.privateConversationData.bookDate}
-            in the name of ${session.privateConversationData.bookName}
-            for ${session.privateConversationData.nbPeople} people.`
-        );
-    }
-]);
-
 bot.dialog("askName", [
     function (session) {
-        builder.Prompts.text(session, "Hi what is your name ?");
+        builder.Prompts.text(session, "What is your name ?");
     },
     function (session, result) {
-        session.privateConversationData.userName = result.response;
-        session.endDialogWithResult(result);
+        session.userData.userName = result.response;
+        session.send(`Hi ${session.userData.userName}! Happy to see you here.`);
+        session.endDialog();
     }
 ]);
 
@@ -88,7 +101,14 @@ bot.dialog("phonePrompt", [
         var number = matched ? matched.join("") : "";
         if (number.length == 10 || number.length == 11) {
             session.userData.phoneNumber = number; // Save the number.
-            session.endDialogWithResult({ response: number });
+            if (session.userData.userName) {
+                session.send(`Thank you ${session.userData.userName}, this will be useful.`);
+                session.endDialog();
+            }
+            else {
+                session.send(`Thank you, this will be useful. You might want to tell me your name aswell.`);
+                session.beginDialog("askName");
+            }
         } else {
             // Repeat the dialog
             session.replaceDialog("phonePrompt", { reprompt: true });
@@ -110,6 +130,13 @@ bot.dialog("reservation", [
     },
     function (session, result) {
         session.privateConversationData.bookName = result.response;
+        const userName = session.userData.userName ? session.userData.userName : "";
+        session.send(
+            `Ok ${userName},
+            I'll make a booking for ${session.privateConversationData.bookDate}
+            in the name of ${session.privateConversationData.bookName}
+            for ${session.privateConversationData.nbPeople} people.`
+        );
         session.endDialog();
     }
 ]).reloadAction(
